@@ -1,8 +1,14 @@
+{-# LANGUAGE ViewPatterns #-}
+
 module BinaryTreeMaze where
 
-import Control.Monad
-import Grid
-import System.Random
+import Grid (grid, Wall(..), normalize, lNeighbors', ghead)
+import Control.Applicative ((<$>))
+import Control.Monad.Random (MonadRandom)
+import Data.Graph.Inductive (Gr, match)
+import qualified Data.Graph.Inductive as Graph
+import Data.List ((\\))
+import System.Random.Shuffle
 
 -- | Return Cell with either the nothern or the eastern border Open
 cellR :: IO Cell
@@ -22,3 +28,6 @@ binaryTreeGrid c r = body
 -- | Convert the Grid to a Maze and print it
 printGrid :: IO Grid -> IO ()
 printGrid iog = iog >>= (printMaze . toMaze)
+
+btR :: Graph.Node -> Gr n e -> [Graph.LEdge e]
+btR start (match start -> Just (ctx, graph)) = undefined

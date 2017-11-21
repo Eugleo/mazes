@@ -1,59 +1,58 @@
+{-# LANGUAGE ViewPatterns #-}
+
 module Grid
-  ( Cell(..)
-  , Border(..)
-  , Grid
-  , toMaze
-  , printMaze
-  ) where
+  ( grid
+  , Wall(..)
+  , Orientation(..)
+  , ghead
+  , normalize
+  , lNeighbors'
+  )
+where
 
-data Border = Open | Closed deriving (Show)
+import Data.Graph.Inductive (Gr, matchAny)
+import qualified Data.Graph.Inductive as Graph
 
--- | Cell Northern Eastearn
-data Cell = Cell Border Border deriving (Show)
+data Orientation = Horizontal | Vertical deriving (Show, Eq)
+data Wall = Wall (Int, Int) Orientation deriving (Eq)
+type Grid = Gr () Wall
 
--- | Represents the whole maze
-type Grid = [[Cell]]
+instance Show Wall where
+  show (Wall xy Horizontal) = show xy ++ " —"
+  show (Wall xy Vertical) = show xy ++ " |"
 
--- | Intermediary type for printing out grids
--- every odd list contains horizontal borders
--- every even list contains vertical borders
-type Maze = [[Border]]
+-- | Return a random node from nonempty graph
+ghead :: Gr a b -> Graph.Node
+ghead graph | Graph.isEmpty graph            = error "Empty graph!"
+ghead (matchAny -> ((_, node, _, _), _)) = node
 
--- | Convert the grid of cells to maze of borders
--- each cell is checked twice - first for the horizontal (Nothern) and then
---  for vertical (Eastern) border
-toMaze :: Grid -> Maze
-toMaze g = body ++ [hBorder]
+-- | Return all edges going in or out of a node (context)
+lNeighbors' :: Graph.Context n e -> [Graph.LEdge e]
+lNeighbors' c = [ (p, n, l) | (n, l) <- Graph.lpre' c ++ Graph.lsuc' c ]
+  where p = Graph.node' c
+
+-- | Normalize all edges - make them go in one direction, i.e. (higer, lower)
+normalize :: [Graph.LEdge e] -> [Graph.LEdge e]
+normalize = map swap
  where
-  body    = combine (map (map hFunc) g) (map (map vFunc) g)
-  hBorder = replicate (length $ head g) Closed
-  vFunc (Cell _ x) = x
-  hFunc (Cell x _) = x
+  swap (n, n', l) | n < n'    = (n', n, l)
+                  | otherwise = (n, n', l)
 
--- | Return a grid with all borders closed
-closedGrid :: Int -> Int -> Grid
-closedGrid c r = replicate r . replicate c $ Cell Closed Closed
-
-combine :: [a] -> [a] -> [a]
-combine []     ys     = ys
-combine xs     []     = xs
-combine (x:xs) (y:ys) = x : y : combine xs ys
-
--- | Render every border of the maze
-prettify :: Maze -> [String]
-prettify = helper 1
+-- | A graph representing a maze with all borders closed
+-- nodes = individual rooms in the maze
+-- edges = the walls between the rooms
+grid :: Int -> Int -> Grid
+grid w h = Graph.mkGraph nodes edges
  where
-  helper :: Int -> Maze -> [String]
-  helper _ [] = []
-  helper n (b:bs) | odd n     = ('+' : concatMap h b) : helper (n + 1) bs
-                  | otherwise = ('|' : concatMap v b) : helper (n + 1) bs
-                  -- odd => we're dealing with horizontal borders
-                  -- even => we're dealing with vertical borders
-  h Closed = "---+"
-  h Open   = "   +"
-  v Closed = "   |"
-  v Open   = "    "
-
-printMaze :: Maze -> IO ()
-printMaze m = putStr $ unlines $ prettify m
-
+  nodeNs = [0 .. w * h - 1]
+  nodes  = [ (n, ()) | n <- nodeNs ]
+  edges  = horizontal ++ vertical
+  horizontal =
+    [ (n', n, wall n' Vertical)
+    | n  <- nodeNs
+    , n' <- nodeNs
+    , n' - n == 1 && n' `mod` w /= 0
+    ]
+  vertical =
+    [ (n', n, wall n' Horizontal) | n <- nodeNs, n' <- nodeNs, n' - n == w ]
+  wall n = let (x, y) = n `divMod` w in Wall (y, x)

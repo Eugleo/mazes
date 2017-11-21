@@ -1,10 +1,10 @@
 module Main where
 
-import BinaryTreeMaze
+import Draw
 
 main :: IO ()
 main = print "Haskell"
 
--- | Create a maze with binary tree algo with c columns and r rows
-mkBTMaze :: Int -> Int -> IO ()
-mkBTMaze c r = printGrid $ binaryTreeGrid c r
+generateMazeWithDFS :: FilePath -> Int -> Int -> IO ()
+generateMazeWithDFS file w h = genPng config file w h
+  where config = Config 10 2 (10 * w + 4) (10 * h + 4)
